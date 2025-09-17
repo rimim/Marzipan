@@ -1,1 +1,1 @@
-Motor sketch using CubeMars AK60 motors and SBUS
+Motor sketch using CubeMars AK60 motors and SBUS.
