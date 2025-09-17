@@ -60,10 +60,10 @@ jobs:
         run: pio run -e teensy
 
       - name: Upload firmware
-        if: ${{ hashFiles('.pio/**/*.hex') != '' }}
+        if: ${{ hashFiles('.pio/build/**/*.hex') != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: firmware-${{ env.REF_LABEL }}
-          path: .pio/**/*.hex
+          path: .pio/build/**/*.hex
           if-no-files-found: ignore
 
