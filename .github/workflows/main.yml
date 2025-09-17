@@ -1,0 +1,70 @@
+# .github/workflows/main.yml
+name: build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+env:
+  CHECKOUT_REF: ${{ github.event_name == 'release' && github.event.release.tag_name
+    || github.event_name == 'pull_request' && github.event.pull_request.head.sha
+    || github.ref_name }}
+
+  REF_LABEL: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number)
+    || github.ref_name }}
+
+concurrency:
+  group: main-${{ github.event_name == 'pull_request' && github.head_ref
+    || github.ref_name || github.event.release.tag_name || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  build-ubuntu:
+    name: Build for ubuntu-24
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CHECKOUT_REF }}
+
+      - name: Setup Hash
+        run: echo "SHORT_SHA=$(printf '%s' "$GITHUB_SHA" | cut -c1-7)" >> "$GITHUB_ENV"
+
+      # Python (for docs + PlatformIO Core via pip)
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      # Cache pip + PlatformIO downloads to speed up runs
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.platformio/.cache
+          key: ${{ runner.os }}-pio-${{ hashFiles('**/platformio.ini') }}
+          restore-keys: |
+            ${{ runner.os }}-pio-
+
+      - name: Install PlatformIO
+        run: pip install --upgrade platformio
+
+      - name: Build Marzipan
+        run: pio run -e teensy
+
+      - name: Upload firmware
+        if: ${{ hashFiles('.pio/**/*.hex') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware-${{ env.REF_LABEL }}
+          path: .pio/**/*.hex
+          if-no-files-found: ignore
+
